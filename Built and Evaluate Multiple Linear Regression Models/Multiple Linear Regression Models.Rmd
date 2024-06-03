@@ -1,0 +1,153 @@
+---
+title: 'Build and Evaluate Multiple Linear Regression Models '
+author: "Nithya Sarabudla"
+date: "03-03-2024"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r load the data}
+# Load the dataset "student-mat.csv"
+student_math <- read.csv("/Users/nithyasarabudla/DA5030/student-mat.csv",sep = ";", header = TRUE, stringsAsFactors = FALSE)
+```
+
+## Question 1 
+
+Create scatter plots and pairwise correlations between age, absences, G1, and G2 and final grade (G3) using the pairs.panels() function in R.
+```{r scatter plots and pairwise correlations}
+# Load the psych library
+library(psych)
+# Create scatter plots for pairwise comparisons between the variables
+pairs(student_math[c("age", "absences", "G1", "G2","G3")])
+# Create enhanced scatter plots with pairwise correlations and distributions
+pairs.panels(student_math[c("age", "absences", "G1", "G2","G3")])
+```
+
+## Question 2 
+Build a multiple regression model predicting final math grade (G3) using as many features as you like but you must use at least four. Include at least one categorical variables and be sure to encode it properly using a method of your choice. Select the features that you believe are useful -- you do not have to include all features.
+```{r multiple regression model}
+# load the library dplyr
+library(dplyr)
+# Select relevant features for the regression model
+# Assuming 'sex' is the categorical variable and 'G1', 'G2', 'studytime', 'absences' are the continuous predictors
+model <- lm(G3 ~ sex + G1 + G2 + studytime + absences, data = student_math)
+
+# Evaluate the model
+summary(model)
+
+```
+
+## Question 3
+Using the model from (2), use stepwise backward elimination to remove all non-significant variables and then state the final model as an equation. State the backward elimination measure you applied (p-value, AIC, Adjusted R2). 
+```{r Perform backward elimination based on AIC}
+# Perform backward elimination based on AIC
+final_model <- step(model, direction="backward")
+summary(final_model)
+```
+
+## Question 4
+Calculate the 95% confidence interval for a prediction -- you may choose any data you wish for some new student.
+```{r 95% confidence interval}
+# New student data
+new_student <- data.frame(
+  sex = factor("M", levels = c("F", "M")),  # ensure the levels are the same as in the original model
+  G1 = 14,
+  G2 = 12,
+  studytime = 2,
+  absences = 0
+)
+
+# Predict G3 for the new student with a 95% confidence interval
+predict_g3 <- predict(model, newdata = new_student, interval = "confidence", level = 0.95)
+
+# Display the prediction and the confidence interval
+print(predict_g3)
+
+```
+The model predicts a final math grade (G3) of 12.05 for the new student, with a 95% confidence interval ranging from 11.67 to 12.43. This range represents where the actual grade is likely to fall with 95% certainty.
+
+
+## Question 5 
+```{r RMSE}
+# Calculate the residuals
+residuals <- model$residuals
+
+# Calculate RMSE
+rmse <- sqrt(mean(residuals^2))
+rmse
+```
+The RMSE for this model is 1.902296
+
+## Question 6 
+
+```{r Handling Missing Values}
+# Handling Missing Values
+student_math_data <- na.omit(student_math)
+```
+
+
+```{r Checking for Normality of Included Features}
+# Load the ggplot2 library for data visualization
+library(ggplot2)
+
+# Define the features to check for normality
+features <- c("G1", "G2", "G3", "age", "absences")
+
+# Loop through each feature to check for normality
+for (feature in features) {
+  # Plot the distribution of the feature using a histogram
+  plot_histogram <- ggplot(student_math, aes(x = .data[[feature]])) +
+  geom_histogram(bins = 30, fill = "brown", color = "white") +
+  labs(title = paste("Distribution of", feature))
+
+print(plot_histogram)
+
+  # Perform Shapiro-Wilk test for normality on the feature
+  # If the p-value is less than 0.05, indicating non-normality, apply a log transformation
+  if (shapiro.test(student_math[[feature]])$p.value < 0.05) {
+    student_math[[feature]] <- log(student_math[[feature]])
+  }
+}
+
+```
+
+
+```{r Identifying and Handling Outliers}
+# Loop through each feature to identify and handle outliers
+for (feature in features) {
+  # Calculate basic statistics for the feature to identify outliers
+  stats <- boxplot.stats(student_math_data[[feature]]) 
+  
+  detected_outliers <- stats$out
+
+  # Print the number of detected outliers for each feature
+  print(paste("Detected outliers for", feature, ":", length(detected_outliers)))
+
+  
+  if (length(detected_outliers) > 0) {
+    
+    student_math_data <- student_math_data[!student_math_data[[feature]] %in% detected_outliers, ]
+  }
+}
+```
+
+
+```{r Rebuilding the Regression Model with Updated Variable Names}
+library(caret)
+
+# Generate dummy variables for categorical features in the cleaned and preprocessed dataset
+dummy_vars <- dummyVars(" ~ .", data = student_math_data)
+transformed_student_math_data <- data.frame(predict(dummy_vars, newdata = student_math_data))
+
+# Train the final linear regression model using the transformed dataset
+final_linear_model <- lm(G3 ~ age + absences + G1 + G2 + sexF + addressU, data = transformed_student_math_data)
+
+# Display the summary of the final model to evaluate its performance
+summary(final_linear_model)
+
+```
+
+
+
+

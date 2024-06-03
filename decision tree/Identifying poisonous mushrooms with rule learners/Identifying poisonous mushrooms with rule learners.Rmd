@@ -1,0 +1,58 @@
+---
+title: "Identifying poisonous mushrooms with rule learners"
+author: "Nithya Sarabudla"
+date: "02-25-2024"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+## Step 1 – collecting data
+## Step 2 – exploring and preparing the data
+
+```{r loading and inspecting the dataset}
+# Load the mushroom dataset into R, converting strings to factors to utilize R's factor functionality
+mushrooms <- read.csv("/cloud/home/r2519596/mushrooms.csv", stringsAsFactors = TRUE)
+# Display the structure of the dataset to understand its features and types
+str(mushrooms)
+```
+This command reveals that the dataset contains 8124 observations of 23 variables, which include both the target variable (type) and predictive features (e.g., cap_shape, cap_color).
+
+```{r Preprocessing Data and Analyzing Target Variable Distribution}
+# Remove the 'veil_type' variable from the dataset as it only contains one level, making it non-informative
+mushrooms$veil_type <- NULL
+# Examine the distribution of the target variable 'type' to check the balance between classes
+table(mushrooms$type)
+```
+The veil_type variable is dropped because it does not vary across samples, thus offering no value for the prediction task.
+The table produces a count of edible and poisonous mushrooms, highlighting the dataset's class balance.
+
+## Step 3 – training a model on the data
+```{r Applying 1R Algorithm}
+# Load the OneR package
+library(OneR)
+# Train a 1R classifier on the mushroom data, attempting to predict 'type' based on all other features
+mushroom_1R <- OneR(type ~ ., data = mushrooms)
+```
+The 1R algorithm identifies the most predictive feature of the target class and constructs a rule based on this feature.
+
+## Step 4 – evaluating model performance
+```{r Evaluating 1R Model}
+# Generate predictions for the mushroom dataset using the trained 1R model
+mushroom_1R_pred <- predict(mushroom_1R, mushrooms)
+# Compare the actual types against the predicted types to evaluate the model's accuracy
+table(actual = mushrooms$type, predicted = mushroom_1R_pred)
+
+```
+This confusion matrix shows how well the 1R model performed, specifically highlighting any misclassifications.The evaluation of the 1R classifier revealed a critical flaw: while it accurately identified all edible mushrooms, it misclassified 120 poisonous ones as edible, posing a significant safety risk. Despite its reliance on a single feature, the classifier performed reasonably well by leveraging odor as the distinguishing factor. However, in real-world applications where lives are at stake, such close accuracy is insufficient. To address this, additional rules are needed to enhance classification accuracy and ensure user safety, especially for field guide publishers who face potential liability issues if their readers fall ill due to misclassifications
+
+## Step 5 – improving model performance
+```{r Applying JRip Algorithm}
+# Load the RWeka package for accessing Java-based machine learning algorithms, including JRip
+library(RWeka)
+mushroom_JRip <- JRip(type ~ ., data = mushrooms)
+# Train a JRip classifier on the mushroom data, which identifies a set of rules for predicting 'type'
+mushroom_JRip
+```
+JRip, a Java-based implementation of the RIPPER algorithm, is used for generating a more sophisticated set of rules.The JRip() classifier generated eight rules to distinguish between edible and poisonous mushrooms, which can be interpreted as if-else statements. For example, if the odor is foul, the mushroom is poisonous. Each rule covers specific instances and aims to minimize misclassifications. Interestingly, these rules achieved 100 percent accuracy, with no misclassifications observed. By iteratively identifying distinguishing features, the classifier successfully separated homogeneous segments of mushrooms, ultimately achieving perfect classification. This success highlights the distinct characteristics of mushroom varieties, enabling accurate classification and ensuring user safety.
